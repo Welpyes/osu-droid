@@ -27,6 +27,7 @@ object AccessibilityDetector {
     private val excludedServices = setOf(
         "com.android.systemui",
         "com.miui.voiceassist",
+        "io.github.sds100.keymapper", 
     )
 
 
