@@ -22,6 +22,59 @@
 </head>
 <body style="background: #0d1117">
 <article id="content" class="markdown-body">
+[insert version here]
+===============
+
+# Changes
+
+- Prevent screen from dimming during gameplay <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+  - Dimming during gameplay can cause distractions and unexpected behavior (e.g., when watching a replay or a beatmap
+    with the Autoplay mod).
+- Hide input block areas when watching a replay or using the Autoplay mod <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+  - The player cannot interact with hitobjects in these modes, so the input block areas are unnecessary.
+- Only snake out sliders if the slider head is hit properly <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+  - Technically, this is a bug fix, but it brings the behavior in line with osu!lazer's snaking out sliders setting.
+- Fade mods that are incompatible with one or more currently selected mods in mod menu <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+- Mark Freeze Frame mod as a difficulty adjusting mod for osu!droid star rating <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+  - The Freeze Frame mod now affects osu!droid star rating and performance points!
+- Improve storyboard and video loading speed <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+  - They may still be loading when gameplay starts, but the loading starts earlier now.
+- Replace shrink playfield downwards setting with adjustable horizontal/vertical position <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+  - This gives players a better control over playfield positioning.
+  - To replicate the shrink downwards behavior, set horizontal position to 50% and vertical position to 100%.
+
+# Bug Fixes
+
+- Fix text input caret position not being in the expected position when an initial value is provided <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+  - This effect can be seen in the multiplayer room creation dialog, where the caret position for room name is at the
+    start instead of the end.
+- Fix exported replay JSON erroneously overriding beatmap MD5 hash <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+  - This caused exported replays to be unusable when importing them back to the game.
+- Fix game potentially starting in a weird width/height setting <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+  - Players who are affected by this bug may see the game starting at the left corner of their screen with a stretched
+    aspect ratio.
+- Fix input block area preventing input on the entire screen when an active input is in an area <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+  - This meant that whenever a player touched an input block area, they would not be able to interact with anything else
+    on the screen until they released the touch. They would see input drops whenever this happens.
+- Fix cursor count limitation being affected by inputs in input block area <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+  - If the player has an input in an input block area, it would count towards the 3 cursor limit, meaning they would
+    only be able to put 2 more fingers on the screen. They would see input drops whenever this happens.
+- Fix cursor down state for remove slider lock setting not being updated when a press occurs <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+  - This caused the setting to not work as expected.
+- Fix a crash when the game fails to load multiplayer room list in multiplayer lobby <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+- Prevent game exit dialog from showing up more than once <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+- Fix a potential crash when loading a score while filtering beatmaps in song selection menu <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+- Fix menu item in gameplay pause menu being selected when dragging a finger instead of pressing with no way of canceling <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+- Fix music not playing when exiting from game loading scene via device back button <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+- Fix select dropdown menu text and options being centered <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+  - An example of this bug can be seen in Approach Different mod animation style customization, where the text is centered.
+- Fix Difficulty Adjust mod default values not being applied as intended <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+- Fix back button in song selection menu potentially being broken after filtering beatmaps <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+- Fix minimum synchronization limit setting not being read at all <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+- Fix wrong rank potentially being displayed in break period due to object hit window leniency <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+- Fix video start time not being considered in gameplay <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+- Fix inconsistent beatmap start time in multiplayer due to unaccounted video start time <span style="font-size: 0.75em">by [Rian8337](https://github.com/Rian8337)</span>
+
 Version 1.8.4.9
 ===============
 

@@ -295,7 +295,7 @@ object ModMenu : UIScene() {
                 return@scope
             }
 
-            modToggles.map { it.mod }.filterIsInstance<IModRequiresOriginalBeatmap>().fastForEach { mod ->
+            enabledMods.values.filterIsInstance<IModRequiresOriginalBeatmap>().fastForEach { mod ->
                 ensureActive()
                 mod.applyFromBeatmap(beatmap)
             }
@@ -372,7 +372,7 @@ object ModMenu : UIScene() {
         modPresetsSection.isVisible = !Multiplayer.isMultiplayer
 
         // Ensure mods that can be enabled by the user are displayed.
-        updateModButtonEnabledState()
+        updateModButtonVisibility()
 
         // Only parsing to update mod's specific settings defaults, specially those which rely on the original beatmap data.
         parseBeatmap()
@@ -449,11 +449,14 @@ object ModMenu : UIScene() {
             removeMod(ModScoreV2())
         }
 
-        updateModButtonEnabledState()
+        updateModButtonVisibility()
     }
 
-    fun updateModButtonEnabledState() {
-        modToggles.fastForEach { it.updateEnabledState() }
+    fun updateModButtonVisibility() {
+        modToggles.fastForEach {
+            it.updateVisibility()
+            it.applyCompatibilityState()
+        }
     }
 
     fun clear() {
@@ -491,8 +494,8 @@ object ModMenu : UIScene() {
     }
 
     private fun onModsChanged() = synchronized(modChangeQueue) {
-
-        val isRanked = enabledMods.isEmpty() || enabledMods.none { !it.value.isRanked }
+        val enabledMods = enabledMods.values.toList()
+        val isRanked = enabledMods.isEmpty() || enabledMods.none { !it.isRanked }
 
         rankedBadge.apply {
             text = if (isRanked) "Ranked" else "Unranked"
@@ -502,6 +505,11 @@ object ModMenu : UIScene() {
 
             background!!.clearEntityModifiers()
             background!!.colorTo(if (isRanked) Color4(0xFF83DF6B) else Theme.current.accentColor * 0.15f, 0.1f)
+        }
+
+        modToggles.fastForEach {
+            it.hasIncompatibility =
+                if (!it.isSelected) enabledMods.any { m -> !it.mod.isCompatibleWith(m) } else false
         }
 
         scoreMultiplierBadge.updateStatisticBadge(

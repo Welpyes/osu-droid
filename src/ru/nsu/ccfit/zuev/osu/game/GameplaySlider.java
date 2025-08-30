@@ -60,6 +60,7 @@ public class GameplaySlider extends GameObject {
     private int completedSpanCount;
     private boolean reverse;
     private final boolean isSliderBallFlip;
+    private boolean shouldSnakeOut;
 
     private GameplayHitSampleInfo[][] nestedHitSamples;
     private final GameplaySequenceHitSampleInfo sliderSlideSample;
@@ -203,6 +204,7 @@ public class GameplaySlider extends GameObject {
 
         reverse = false;
         startHit = false;
+        shouldSnakeOut = false;
         ticksGot = 0;
         completedSpanCount = 0;
         currentTickSpriteIndex = 0;
@@ -442,6 +444,16 @@ public class GameplaySlider extends GameObject {
         }
 
         if (percentage >= 1) {
+            PointF previousPoint = getAbsolutePathPosition(path.anchorCount - 2);
+
+            if (updateBallAngle) {
+                ballAngle = MathUtils.radToDeg(Utils.direction(previousPoint.x, previousPoint.y, pathEndPosition.x, pathEndPosition.y));
+            }
+
+            if (updateEndArrowRotation) {
+                endArrow.setRotation(MathUtils.radToDeg(Utils.direction(pathEndPosition.x, pathEndPosition.y, previousPoint.x, previousPoint.y)));
+            }
+
             tmpPoint.set(pathEndPosition);
             return tmpPoint;
         }
@@ -1011,7 +1023,7 @@ public class GameplaySlider extends GameObject {
         final float percentage = FMath.clamp((float) (elapsedSpanTime / spanDuration), 0, 1);
         final float bodyProgress = reverse ? 1 - percentage : percentage;
 
-        if (Config.isSnakingOutSliders() && completedSpanCount == beatmapSlider.getSpanCount() - 1) {
+        if (shouldSnakeOut && Config.isSnakingOutSliders() && completedSpanCount == beatmapSlider.getSpanCount() - 1) {
             float length = bodyProgress * superPath.getMeasurer().maxLength();
 
             if (reverse) {
@@ -1077,6 +1089,7 @@ public class GameplaySlider extends GameObject {
                 listener.registerAccuracy(hitOffset);
                 playCurrentNestedObjectHitSound();
                 ticksGot++;
+                shouldSnakeOut = true;
                 listener.onSliderHit(id, 30, position,
                         false, bodyColor, GameObjectListener.SLIDER_START, true);
             } else {
@@ -1090,6 +1103,7 @@ public class GameplaySlider extends GameObject {
             listener.registerAccuracy(hitOffset);
             playCurrentNestedObjectHitSound();
             ticksGot++;
+            shouldSnakeOut = true;
             listener.onSliderHit(id, 30, position,
                     false, bodyColor, GameObjectListener.SLIDER_START, true);
         }

@@ -8,6 +8,7 @@ import com.reco1l.andengine.container.UIContainer
 import com.osudroid.ui.v2.hud.editor.HUDElementSelector
 import com.reco1l.osu.ui.MessageDialog
 import com.osudroid.utils.updateThread
+import com.reco1l.andengine.ExtendedEngine
 import com.reco1l.andengine.component.*
 import com.reco1l.toolkt.kotlin.*
 import com.rian.osu.beatmap.hitobject.HitObject
@@ -67,7 +68,19 @@ class GameplayHUD : UIContainer(), IGameplayEvents {
         // The engine expects the HUD to be an instance of AndEngine's HUD class.
         // Since we need Container features, we set an HUD instance as the parent, and we just need to
         // reference the parent of this container to set the engine's HUD.
-        val parent = HUD()
+        val parent = object : HUD() {
+            override fun onManagedUpdate(pSecondsElapsed: Float) {
+                val engine = ExtendedEngine.Current
+
+                if (engine.scene != GlobalManager.getInstance().gameScene?.scene) {
+                    engine.camera.hud = null
+                    return
+                }
+
+                super.onManagedUpdate(pSecondsElapsed)
+            }
+        }
+
         parent.attachChild(this)
         parent.camera = GlobalManager.getInstance().engine.camera
 
@@ -130,7 +143,7 @@ class GameplayHUD : UIContainer(), IGameplayEvents {
             .addButton(StringTable.get(string.hudEditor_modal_reset)) {
                 it.dismiss()
                 updateThread {
-                    setSkinData(HUDSkinData.Companion.Default)
+                    setSkinData(HUDSkinData.Default)
                     ToastLogger.showText(string.hudEditor_reset, true)
                 }
             }
@@ -160,7 +173,7 @@ class GameplayHUD : UIContainer(), IGameplayEvents {
             json = SkinJsonReader.getReader().currentData
         }
 
-        json.put("HUD", HUDSkinData.Companion.writeToJSON(data))
+        json.put("HUD", HUDSkinData.writeToJSON(data))
         jsonFile.writeText(json.toString(4))
 
         SkinJsonReader.getReader().currentData = json
@@ -189,7 +202,7 @@ class GameplayHUD : UIContainer(), IGameplayEvents {
         // applying default layout.
         layoutData.elements.forEach { data -> addElement(data) }
 
-        if (layoutData == HUDSkinData.Companion.Default) {
+        if (layoutData == HUDSkinData.Default) {
             applyDefaultLayout()
         }
     }

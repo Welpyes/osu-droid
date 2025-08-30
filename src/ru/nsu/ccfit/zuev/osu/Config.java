@@ -54,9 +54,9 @@ public class Config {
         animateFollowCircle,
         animateComboText,
         snakingInSliders,
+        snakingOutSliders,
         playMusicPreview,
         showCursor,
-        shrinkPlayfieldDownwards,
         enableExtension,
         loadAvatar,
         stayOnline,
@@ -94,6 +94,8 @@ public class Config {
         offset,
         backgroundBrightness,
         playfieldSize,
+        playfieldHorizontalPosition,
+        playfieldVerticalPosition,
         cursorSize;
 
     private static Map<String, String> skins;
@@ -138,11 +140,13 @@ public class Config {
 
         measureDisplaySize();
         setPlayfieldSize(prefs.getInt("playfieldSize", 100) / 100f);
+        playfieldHorizontalPosition = prefs.getInt("playfieldHorizontalPosition", 50) / 100f;
+        playfieldVerticalPosition = prefs.getInt("playfieldVerticalPosition", 50) / 100f;
 
-        shrinkPlayfieldDownwards = prefs.getBoolean("shrinkPlayfieldDownwards", true);
         animateFollowCircle = prefs.getBoolean("animateFollowCircle", true);
         animateComboText = prefs.getBoolean("animateComboText", true);
         snakingInSliders = prefs.getBoolean("snakingInSliders", true);
+        snakingOutSliders = prefs.getBoolean("snakingOutSliders", true);
 
         try {
             offset = prefs.getInt("offset", 0);
@@ -225,6 +229,7 @@ public class Config {
         receiveAnnouncements = prefs.getBoolean("receiveAnnouncements", true);
         safeBeatmapBg = prefs.getBoolean("safebeatmapbg", false);
         shiftPitchInRateChange = prefs.getBoolean("shiftPitchInRateChange", false);
+        minimumGameplaySynchronizationTime = prefs.getInt("gameAudioSynchronizationThreshold", 20);
 
         // Multiplayer
         useNightcoreOnMultiplayer = prefs.getBoolean("player_nightcore", false);
@@ -266,8 +271,8 @@ public class Config {
         Activity activity = (Activity) context;
         activity.getWindowManager().getDefaultDisplay().getRealMetrics(displayMetrics);
 
-        int width = displayMetrics.widthPixels;
-        int height = displayMetrics.heightPixels;
+        int width = Math.max(displayMetrics.widthPixels, displayMetrics.heightPixels);
+        int height = Math.min(displayMetrics.widthPixels, displayMetrics.heightPixels);
 
         // Tries to emulate the original behavior, the game was designed for 1280x720
         // resolution, so we try to approximate the scale factor.
@@ -462,7 +467,7 @@ public class Config {
     }
 
     public static boolean isSnakingOutSliders() {
-        return getBoolean("snakingOutSliders", true);
+        return snakingOutSliders;
     }
 
     public static boolean isPlayMusicPreview() {
@@ -649,12 +654,12 @@ public class Config {
         Config.playfieldSize = playfieldSize;
     }
 
-    public static boolean isShrinkPlayfieldDownwards() {
-        return shrinkPlayfieldDownwards;
+    public static float getPlayfieldHorizontalPosition() {
+        return playfieldHorizontalPosition;
     }
 
-    public static void setShrinkPlayfieldDownwards(boolean shrinkPlayfieldDownwards) {
-        Config.shrinkPlayfieldDownwards = shrinkPlayfieldDownwards;
+    public static float getPlayfieldVerticalPosition() {
+        return playfieldVerticalPosition;
     }
 
     public static boolean isHideReplayMarquee() {

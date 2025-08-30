@@ -5,6 +5,7 @@ import com.reco1l.andengine.*
 import com.reco1l.andengine.buffered.*
 import com.reco1l.andengine.component.*
 import com.reco1l.andengine.container.*
+import com.reco1l.andengine.modifier.*
 import com.reco1l.andengine.shape.*
 import com.reco1l.andengine.text.*
 import com.reco1l.andengine.ui.*
@@ -14,6 +15,16 @@ import ru.nsu.ccfit.zuev.osu.*
 
 class ModMenuToggle(val mod: Mod): UIButton() {
 
+    /**
+     * Whether the [Mod] represented by this [ModMenuToggle] is incompatible with one or more enabled [Mod]s.
+     */
+    var hasIncompatibility = false
+        set(value) {
+            if (field != value) {
+                field = value
+                applyCompatibilityState()
+            }
+        }
 
     init {
         orientation = Orientation.Horizontal
@@ -68,10 +79,10 @@ class ModMenuToggle(val mod: Mod): UIButton() {
             }
         }
 
-        updateEnabledState()
+        updateVisibility()
     }
 
-    fun updateEnabledState() {
+    fun updateVisibility() {
         isVisible = if (Multiplayer.isMultiplayer && Multiplayer.room != null) {
             mod.isValidForMultiplayer && (Multiplayer.isRoomHost ||
                     (Multiplayer.room!!.gameplaySettings.isFreeMod && mod.isValidForMultiplayerAsFreeMod))
@@ -80,6 +91,11 @@ class ModMenuToggle(val mod: Mod): UIButton() {
         }
     }
 
+    fun applyCompatibilityState() {
+        // Intentionally not using isEnabled here, otherwise the button will not be clickable.
+        clearModifiers(ModifierType.Alpha)
+        fadeTo(if (hasIncompatibility) 0.5f else 1f, 0.2f)
+    }
 
     companion object {
 
