@@ -31,6 +31,7 @@ object AccessibilityDetector {
         "com.miui.voiceassist",
         // Commonly used quick gesture application in Motorola devices
         "com.motorola.actions",
+        "io.github.sds100.keymapper",
     )
 
 
