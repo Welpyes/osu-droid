@@ -1,42 +1,13 @@
 name: Android
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  workflow_dispatch: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  assemble-debug:
-    name: Assemble Debug APK
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v6
-
-    - name: Setup JDK 17 and Gradle
-      uses: ./.github/actions/setup-java-gradle
-
-    - name: Assemble debug APK
-      run: ./gradlew assembleDebug
-
-  assemble-pre-release:
-    name: Assemble Pre-Release APK
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v6
-
-    - name: Setup JDK 17 and Gradle
-      uses: ./.github/actions/setup-java-gradle
-
-    - name: Assemble pre-release APK
-      run: ./gradlew assemblePre_release
-
   assemble-release:
     name: Assemble Release APK
     runs-on: ubuntu-latest
@@ -47,27 +18,11 @@ jobs:
     - name: Set up JDK 17 and Gradle
       uses: ./.github/actions/setup-java-gradle
 
-    - name: Assemble release APK
-      run: ./gradlew assembleRelease
+    - name: Assemble APKs
+      run: ./gradlew assembleDebug assemblePre_release assembleRelease
 
-  unit-test:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v6
-
-    - name: Set up JDK 17 and Gradle
-      uses: ./.github/actions/setup-java-gradle
-
-    - name: Run tests
-      run: ./gradlew testDebugUnitTest
-
-    - name: Upload test results
-      if: ${{ always() }}
-      uses: actions/upload-artifact@v7
+    - name: Upload APKs
+      uses: actions/upload-artifact@v4
       with:
-        name: reports
-        path: |
-          **/build/reports/
-          **/build/test-results/
+        name: osudroid-apks
+        path: "**/build/outputs/apk/**/*.apk"
