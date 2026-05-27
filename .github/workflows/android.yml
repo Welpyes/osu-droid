@@ -19,7 +19,7 @@ jobs:
       uses: ./.github/actions/setup-java-gradle
 
     - name: Assemble APKs
-      run: ./gradlew assembleDebug assemblePre_release assembleRelease
+      run: ./gradlew assembleRelease
 
     - name: Upload APKs
       uses: actions/upload-artifact@v4
