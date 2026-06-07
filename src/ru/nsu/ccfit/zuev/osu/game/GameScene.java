@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope;
 import kotlinx.coroutines.Job;
 import ru.nsu.ccfit.zuev.audio.serviceAudio.SongService;
 import com.osudroid.audio.SongServiceClock;
+import com.osudroid.beatmaps.constants.HitObjectType;
 import com.osudroid.game.FramedBeatmapClock;
 import ru.nsu.ccfit.zuev.osu.SecurityUtils;
 
@@ -31,6 +32,7 @@ import com.osudroid.multiplayer.api.RoomAPI;
 import com.osudroid.beatmaps.DifficultyCalculationManager;
 import com.osudroid.data.BeatmapInfo;
 import com.osudroid.ui.v2.GameLoaderScene;
+import com.osudroid.ui.v2.multi.LobbyScene;
 import com.osudroid.data.DatabaseManager;
 import com.osudroid.ui.v2.game.SliderTickSprite;
 import com.osudroid.ui.v2.hud.elements.HUDLeaderboard;
@@ -59,7 +61,6 @@ import com.osudroid.beatmaps.ComboColor;
 import com.osudroid.beatmaps.DroidPlayableBeatmap;
 import com.osudroid.beatmaps.HitWindow;
 import com.osudroid.beatmaps.constants.BeatmapCountdown;
-import com.osudroid.beatmaps.constants.HitObjectType;
 import com.osudroid.beatmaps.hitobjects.HitCircle;
 import com.osudroid.beatmaps.hitobjects.HitObject;
 import com.osudroid.beatmaps.hitobjects.Slider;
@@ -72,7 +73,10 @@ import com.osudroid.beatmaps.timings.EffectControlPoint;
 import com.osudroid.beatmaps.timings.TimingControlPoint;
 import com.osudroid.difficulty.BeatmapDifficultyCalculator;
 import com.osudroid.difficulty.attributes.DroidDifficultyAttributes;
+import com.osudroid.difficulty.attributes.DroidPerformanceAttributes;
+import com.osudroid.difficulty.attributes.PerformanceAttributes;
 import com.osudroid.difficulty.attributes.StandardDifficultyAttributes;
+import com.osudroid.difficulty.attributes.StandardPerformanceAttributes;
 import com.osudroid.difficulty.attributes.TimedDifficultyAttributes;
 import com.osudroid.difficulty.calculator.DroidPerformanceCalculationParameters;
 import com.osudroid.difficulty.calculator.PerformanceCalculationParameters;
@@ -213,6 +217,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private CompletableFuture<?> loadingPipeline;
     private Job gameLoadingJob;
 
+    private PerformanceAttributes performanceAttributes;
     private PerformanceCalculationParameters performanceCalculationParameters;
     private volatile TimedDifficultyAttributes<DroidDifficultyAttributes>[] droidTimedDifficultyAttributes;
     private volatile TimedDifficultyAttributes<StandardDifficultyAttributes>[] standardTimedDifficultyAttributes;
@@ -472,6 +477,13 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             return;
         }
 
+        // Check if video file exists before attempting to load.
+        var videoFile = new File(beatmapInfo.getAbsoluteSetDirectory() + "/" + videoFilename);
+
+        if (!videoFile.exists()) {
+            return;
+        }
+
         videoLoadingJob = Execution.async(scope -> {
             try {
                 var video = new UIVideoSprite(beatmapInfo.getAbsoluteSetDirectory() + "/" + videoFilename, engine);
@@ -481,8 +493,10 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
                 this.video = video;
 
-                // The video may only load after gameplay is started, in which case we must apply it immediately.
-                Execution.updateThread(this::applyBackground);
+                // applyBackground is called from the onReady callback once ExoPlayer reports the video dimensions via
+                // onVideoSizeChanged, rather than blocking here.
+                // If dimensions are already known (fast local file), the callback fires immediately.
+                video.setOnReady(() -> Execution.updateThread(this::applyBackground));
             } catch (Exception e) {
                 video = null;
                 Log.e("GameScene", "Error while loading video background.", e);
@@ -508,6 +522,12 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     }
 
     private void applyBackground() {
+        // Guard: video sprite exists but dimensions not yet reported by ExoPlayer.
+        // onVideoSizeChanged will trigger another applyBackground call when they arrive.
+        if (video != null && (video.getWidth() == 0 || video.getHeight() == 0)) {
+            return;
+        }
+
         // This is used instead of getBackgroundBrightness to directly obtain the
         // updated value from the brightness slider.
         float brightness = Config.getInt("bgbrightness", 25) / 100f;
@@ -648,28 +668,36 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         this.playableBeatmap = playableBeatmap;
 
         if (isHUDEditorMode || OsuSkin.get().getHUDSkinData().hasElement(HUDPPCounter.class)) {
+            final var finalParsedBeatmap = parsedBeatmap;
+
+            // Calculate timed difficulty attributes
             switch (Config.getDifficultyAlgorithm()) {
                 case droid -> {
+                    performanceAttributes = new DroidPerformanceAttributes();
                     performanceCalculationParameters = new DroidPerformanceCalculationParameters();
 
                     if (droidTimedDifficultyAttributes == null || differentPlayableBeatmap) {
-                        final var beatmap = playableBeatmap;
+                        final var finalPlayableBeatmap = playableBeatmap;
 
                         ppCalculationJob = Execution.async(ppScope -> {
-                            droidTimedDifficultyAttributes = BeatmapDifficultyCalculator.calculateDroidTimedDifficulty(beatmap, ppScope);
+                            droidTimedDifficultyAttributes = BeatmapDifficultyCalculator.calculateDroidTimedDifficulty(
+                                finalParsedBeatmap, finalPlayableBeatmap, ppScope
+                            );
                         });
                     }
                 }
 
                 case standard -> {
+                    performanceAttributes = new StandardPerformanceAttributes();
                     performanceCalculationParameters = new StandardPerformanceCalculationParameters();
 
                     if (standardTimedDifficultyAttributes == null || differentPlayableBeatmap) {
-                        final var beatmap = parsedBeatmap;
                         final var modValues = mods.values();
 
                         ppCalculationJob = Execution.async(ppScope -> {
-                            standardTimedDifficultyAttributes = BeatmapDifficultyCalculator.calculateStandardTimedDifficulty(beatmap, modValues, ppScope);
+                            standardTimedDifficultyAttributes = BeatmapDifficultyCalculator.calculateStandardTimedDifficulty(
+                                finalParsedBeatmap, modValues, ppScope
+                            );
                         });
                     }
                 }
@@ -690,7 +718,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         }
 
         // TODO skin manager
-        BeatmapSkinManager.getInstance().loadBeatmapSkin(playableBeatmap.getBeatmapsetPath());
+        if (shouldParseBeatmap) {
+            BeatmapSkinManager.getInstance().loadBeatmapSkin(playableBeatmap.getBeatmapsetPath());
+        }
 
         var breaks = playableBeatmap.getEvents().breaks;
 
@@ -1019,7 +1049,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                         } finally {
                             if (requestId == loadingRequestId.get()) {
                                 if (!succeeded && !cancelled) {
-                                    quit();
+                                    Execution.updateThread(this::quit);
                                 }
 
                                 gameLoadingJob = null;
@@ -1087,7 +1117,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         stat = new StatisticV2();
         stat.setMod(lastMods);
         stat.migrateLegacyMods(parsedBeatmap.getDifficulty());
-        stat.calculateModScoreMultiplier(parsedBeatmap);
+        stat.calculateModScoreMultiplier(parsedBeatmap.getDifficulty());
         stat.canFail = !stat.getMod().contains(ModNoFail.class)
                 && !stat.getMod().contains(ModRelax.class)
                 && !stat.getMod().contains(ModAutopilot.class)
@@ -1485,6 +1515,10 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 GameHelper.setSpeedMultiplier(currentSpeedMultiplier);
                 beatmapClock.setRate(currentSpeedMultiplier);
 
+                if (videoEnabled && video != null) {
+                    video.setPlaybackSpeed(currentSpeedMultiplier);
+                }
+
                 var songService = GlobalManager.getInstance().getSongService();
                 songService.setSpeed(modRate);
                 songService.setPitchRate(replaySettingsRate);
@@ -1766,13 +1800,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         {
             if (!videoStarted) {
                 video.play();
-                // Some devices do not support custom playback speed for whatever reason.
-                try {
-                    video.setPlaybackSpeed(GameHelper.getSpeedMultiplier());
-                } catch (Exception e) {
-                    Log.e("GameScene", "Failed to change video playback speed.", e);
-                    ToastLogger.showText(com.osudroid.resources.R.string.message_video_custom_speed_unsupported, false);
-                }
+                video.setPlaybackSpeed(GameHelper.getSpeedMultiplier());
                 videoStarted = true;
             }
 
@@ -1931,6 +1959,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             breakPeriods = null;
             cursorSprites = null;
             this.playableBeatmap = null;
+            performanceAttributes = null;
             performanceCalculationParameters = null;
             droidTimedDifficultyAttributes = null;
             standardTimedDifficultyAttributes = null;
@@ -2128,7 +2157,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             if (expiredObjects != null) {
                 expiredObjects.clear();
             }
-            hud.detachSelf();
+            if (hud != null) {
+                hud.detachSelf();
+            }
             breakPeriods = null;
             replaySettingsPanel = null;
             objects = null;
@@ -2138,12 +2169,15 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             playableBeatmap = null;
             cursorSprites = null;
             lastMods = null;
+            performanceAttributes = null;
             performanceCalculationParameters = null;
             droidTimedDifficultyAttributes = null;
             standardTimedDifficultyAttributes = null;
             sliderPaths = null;
             sliderRenderPaths = null;
         });
+
+        BeatmapSkinManager.getInstance().clearSkin();
 
         cancelStoryboardLoading();
         cancelVideoLoading();
@@ -2203,10 +2237,16 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         resetPlayfieldSizeScale();
         scene = createMainScene();
 
-        if (Multiplayer.isMultiplayer)
-        {
-            Multiplayer.roomScene.show();
+        if (Multiplayer.isMultiplayer) {
             releaseVideo();
+            var roomScene = Multiplayer.roomScene;
+
+            if (Multiplayer.isConnected() && roomScene != null) {
+                roomScene.show();
+            } else {
+                engine.setScene(new LobbyScene());
+            }
+
             return;
         }
         ResourceManager.getInstance().getSound("failsound").stop();
@@ -2876,13 +2916,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                     float decreasedSpeed = GameHelper.getSpeedMultiplier() * (1 - (initialFrequency - decreasedFrequency) / initialFrequency);
 
                     if (videoEnabled && video != null) {
-                        // In some devices this can throw an exception, unfortunately there's no
-                        // documentation that explains how to avoid that scenario. Thanks Google.
-                        try {
-                            video.setPlaybackSpeed(decreasedSpeed);
-                        } catch (Exception e) {
-                            Log.e("GameScene", "Failed to change video playback speed during game over animation.", e);
-                        }
+                        video.setPlaybackSpeed(decreasedSpeed);
                     }
 
                     songService.setFrequencyForcefully(decreasedFrequency);
@@ -3359,9 +3393,11 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         performanceCalculationParameters.populate(playableBeatmap, stat);
 
-        return BeatmapDifficultyCalculator.calculateDroidPerformance(
-            timedAttributes.attributes, (DroidPerformanceCalculationParameters) performanceCalculationParameters
-        ).total;
+        BeatmapDifficultyCalculator.calculateDroidPerformance(timedAttributes.attributes,
+                (DroidPerformanceCalculationParameters) performanceCalculationParameters,
+                (DroidPerformanceAttributes) performanceAttributes);
+
+        return performanceAttributes.total;
     }
 
     private double getStandardPPAt(int objectId) {
@@ -3377,9 +3413,11 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         performanceCalculationParameters.populate(playableBeatmap, stat);
 
-        return BeatmapDifficultyCalculator.calculateStandardPerformance(
-            timedAttributes.attributes, (StandardPerformanceCalculationParameters) performanceCalculationParameters
-        ).total;
+        BeatmapDifficultyCalculator.calculateStandardPerformance(timedAttributes.attributes,
+                (StandardPerformanceCalculationParameters) performanceCalculationParameters,
+                (StandardPerformanceAttributes) performanceAttributes);
+
+        return performanceAttributes.total;
     }
 
     private UIScene createMainScene() {

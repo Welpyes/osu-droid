@@ -3,7 +3,6 @@ package com.osudroid.ui.v1
 import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
@@ -305,7 +304,7 @@ class SettingsFragment : SettingsFragment() {
 
                 GlobalManager.getInstance().songService.volume = prefs.getInt("bgmvolume", 100) / 100f
 
-                loadSkin(context, prefs.getString("skinPath", "")!!).invokeOnCompletion {
+                loadSkin(prefs.getString("skinPath", "")!!).invokeOnCompletion {
                     mainThread {
                         ToastLogger.showText(string.config_backup_restore_info_success, true)
                         dismiss()
@@ -388,7 +387,7 @@ class SettingsFragment : SettingsFragment() {
             options = skins
 
             setOnPreferenceChangeListener { _, newValue ->
-                loadSkin(context, newValue.toString())
+                loadSkin(newValue.toString())
                 true
             }
         }
@@ -518,9 +517,12 @@ class SettingsFragment : SettingsFragment() {
 
     private fun handleAdvancedSectionPreferences() {
         findPreference<CheckBoxPreference>("forceMaxRefreshRate")!!.apply {
-            // Obtaining supported refresh rates is only available on Android 12 and above.
-            // See https://developer.android.com/reference/android/view/Display.Mode#getAlternativeRefreshRates().
-            isVisible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+            isVisible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+
+            setOnPreferenceChangeListener { _, newValue ->
+                (requireActivity() as MainActivity).applyRefreshRateSetting(newValue as Boolean)
+                true
+            }
         }
 
         findPreference<InputPreference>("skinTopPath")!!.setOnPreferenceChangeListener { it, newValue ->
@@ -691,7 +693,7 @@ class SettingsFragment : SettingsFragment() {
     }
 
 
-    private fun loadSkin(context: Context, path: String): Job {
+    private fun loadSkin(path: String): Job {
         val loading = LoadingFragment()
 
         loading.isDismissOnBackPress = false

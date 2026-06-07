@@ -25,6 +25,7 @@ import com.osudroid.ui.v2.modmenu.ModMenu
 import com.osudroid.utils.async
 import com.osudroid.utils.mainThread
 import com.osudroid.utils.updateThread
+import com.osudroid.resources.R
 import com.reco1l.andengine.Anchor
 import com.reco1l.andengine.Axes
 import com.reco1l.andengine.UIEngine
@@ -59,13 +60,13 @@ import com.reco1l.osu.ui.MessageDialog
 import com.reco1l.toolkt.kotlin.runSafe
 import com.osudroid.mods.ModScoreV2
 import org.json.JSONArray
+import ru.nsu.ccfit.zuev.audio.Status
 import ru.nsu.ccfit.zuev.osu.Config
 import ru.nsu.ccfit.zuev.osu.GlobalManager
 import ru.nsu.ccfit.zuev.osu.LibraryManager
 import ru.nsu.ccfit.zuev.osu.ResourceManager
 import ru.nsu.ccfit.zuev.osu.ToastLogger
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
-import ru.nsu.ccfit.zuev.osuplus.R
 
 class RoomScene(
     /**
@@ -748,6 +749,21 @@ class RoomScene(
         // will call invalidateStatus() with the correct beatmap context.
 
         chat.show()
+    }
+
+    override fun onManagedUpdate(deltaTimeSec: Float) {
+        val selectedBeatmap = GlobalManager.getInstance().selectedBeatmap
+
+        if (selectedBeatmap != null) {
+            val songService = GlobalManager.getInstance().songService
+
+            if (songService.status == Status.STOPPED) {
+                songService.preLoad(selectedBeatmap.audioPath)
+                songService.play()
+            }
+        }
+
+        super.onManagedUpdate(deltaTimeSec)
     }
 
 
