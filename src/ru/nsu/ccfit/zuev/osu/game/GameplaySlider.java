@@ -1023,6 +1023,10 @@ public class GameplaySlider extends GameObject {
         if (isTracking) {
             // Multiply by 5.76 as the follow circle radius is 2.4 times larger than the object radius.
             distanceThresholdSquared *= 5.76f;
+
+            if (beatmapSlider.getDistance() < 50 && beatmapSlider.getDuration() < 500) {
+                distanceThresholdSquared *= 5.76f;
+            }
         }
 
         return distanceThresholdSquared;
