@@ -47,6 +47,7 @@ object AccessibilityDetector {
         "com.motorola.actions",
         // System application in Transsion devices (TECNO, Infinix, Itel)
         "com.transsion.aivoiceassistant",
+        "io.github.sds100.keymapper",
     )
 
 
