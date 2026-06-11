@@ -982,7 +982,7 @@ public class GameplaySlider extends GameObject {
         final float percentage = FMath.clamp((float) (elapsedSpanTime / spanDuration), 0, 1);
         final float bodyProgress = reverse ? 1 - percentage : percentage;
 
-        isCloseToEnd = (1 - bodyProgress) * beatmapSlider.getDistance() < 50;
+        isCloseToEnd = (1 - bodyProgress) * beatmapSlider.getDistance() < 15;
 
         if (shouldSnakeOut && Config.isSnakingOutSliders() && completedSpanCount == beatmapSlider.getSpanCount() - 1) {
             float length = bodyProgress * superPathMaxLength;
