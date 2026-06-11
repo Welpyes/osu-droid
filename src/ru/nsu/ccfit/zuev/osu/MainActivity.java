@@ -137,11 +137,11 @@ public class MainActivity extends BaseGameActivity implements
         reportGlesVersion();
 
         Config.loadConfig(this);
+        StringTable.setContext(this);
+        ToastLogger.init(this);
         initialGameDirectory();
         Multiplayer.initLog();
         //Debug.setDebugLevel(Debug.DebugLevel.NONE);
-        StringTable.setContext(this);
-        ToastLogger.init(this);
         OnlineManager.getInstance().init();
         crashlytics.setUserId(Config.getOnlineDeviceID());
 
@@ -864,7 +864,12 @@ public class MainActivity extends BaseGameActivity implements
 
         Multiplayer.flushLog();
         AccessibilityDetector.unregister(this);
-        ((DisplayManager) getSystemService(DISPLAY_SERVICE)).unregisterDisplayListener(displayListener);
+
+        var listener = displayListener;
+
+        if (listener != null) {
+            ((DisplayManager) getSystemService(DISPLAY_SERVICE)).unregisterDisplayListener(listener);
+        }
     }
 
     @Override
@@ -1042,7 +1047,9 @@ public class MainActivity extends BaseGameActivity implements
                         runOnUiThread(Multiplayer.roomScene.getLeaveDialog()::show);
                         return true;
                     }
-                } else if (currentScene instanceof GameLoaderScene loaderScene) {
+                }
+
+                if (currentScene instanceof GameLoaderScene loaderScene) {
                     loaderScene.cancel();
                     return true;
                 }
