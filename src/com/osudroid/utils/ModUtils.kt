@@ -24,6 +24,7 @@ object ModUtils {
             ModApproachDifferent(),
             ModAutoplay(),
             ModAutopilot(),
+            ModCSStable(),
             ModCustomSpeed(),
             ModDifficultyAdjust(),
             ModDoubleTime(),

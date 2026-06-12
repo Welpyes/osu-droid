@@ -307,6 +307,7 @@ open class ModHashMap : ConcurrentHashMap<Class<out Mod>, Mod> {
             ModEasy(),
             ModNoFail(),
             ModHardRock(),
+            ModCSStable(),
             ModDifficultyAdjust(),
             ModMirror(),
             ModRandom(),
