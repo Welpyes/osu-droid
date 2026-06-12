@@ -119,7 +119,7 @@ public abstract class GameObject {
                         }
 
                         // Case 2
-                        if (objectElapsedTime >= 0.005 && isHit) {
+                        if (objectElapsedTime >= 0.01 && isHit) {
                             return event;
                         }
                     }

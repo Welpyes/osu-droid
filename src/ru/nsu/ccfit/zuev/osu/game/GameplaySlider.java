@@ -83,6 +83,8 @@ public class GameplaySlider extends GameObject {
 
     private int trackingCursorId = -1;
     private boolean isTracking;
+    private boolean isCursorInside;
+    private float trackingLeniencyTimer;
     private boolean spanStarted;
     private boolean isCloseToEnd;
 
@@ -207,6 +209,8 @@ public class GameplaySlider extends GameObject {
         hitWindow = beatmapSlider.getHead().hitWindow;
         trackingCursorId = -1;
         isTracking = false;
+        isCursorInside = false;
+        trackingLeniencyTimer = 0;
         headWasHit = false;
 
         reloadHitSounds();
@@ -751,6 +755,7 @@ public class GameplaySlider extends GameObject {
         if (!startHit) {
             // Do not allow tracking to happen when the slider head is not yet judged.
             isTracking = false;
+            isCursorInside = false;
             trackingCursorId = -1;
             return;
         }
@@ -758,17 +763,20 @@ public class GameplaySlider extends GameObject {
         if (autoPlay || replayObjectData != null) {
             trackingCursorId = 0;
             isTracking = true;
+            isCursorInside = true;
+            trackingLeniencyTimer = 0.5f;
         } else {
+            isCursorInside = false;
+
             if (trackingCursorId != -1) {
                 // If the slider is being tracked, we only want to check if the tracking cursor is still tracking it.
                 var trackingCursor = listener.getCursor(trackingCursorId);
                 var latestEvent = trackingCursor.getLatestEvent();
 
                 if (latestEvent != null && !latestEvent.isActionUp()) {
-                    isTracking = isCursorTracking(position, latestEvent);
+                    isCursorInside = isCursorTracking(position, latestEvent);
                 } else {
                     trackingCursorId = -1;
-                    isTracking = false;
                 }
             }
 
@@ -780,11 +788,17 @@ public class GameplaySlider extends GameObject {
 
                     if (latestEvent != null && isCursorTracking(position, latestEvent)) {
                         trackingCursorId = i;
-                        isTracking = true;
+                        isCursorInside = true;
                         break;
                     }
                 }
             }
+
+            if (isCursorInside) {
+                trackingLeniencyTimer = 0.5f;
+            }
+
+            isTracking = trackingLeniencyTimer > 0;
         }
 
         updateFollowCircleTrackingState();
@@ -811,8 +825,9 @@ public class GameplaySlider extends GameObject {
     private void updateFollowCircleTrackingState() {
         float scale = beatmapSlider.getScreenSpaceGameplayScale();
         boolean isTracking = isTracking();
+        boolean isVisuallyTracking = isCursorInside && isTracking;
 
-        if (isTracking && !isInRadius) {
+        if (isVisuallyTracking && !isInRadius) {
             playSlidingSamples();
 
             if (Config.isAnimateFollowCircle()) {
@@ -827,7 +842,7 @@ public class GameplaySlider extends GameObject {
             } else {
                 followCircle.setAlpha(1);
             }
-        } else if (!isTracking && isInRadius) {
+        } else if (!isVisuallyTracking && isInRadius) {
             stopSlidingSamples();
 
             if (Config.isAnimateFollowCircle()) {
@@ -840,7 +855,7 @@ public class GameplaySlider extends GameObject {
             }
         }
 
-        isInRadius = isTracking;
+        isInRadius = isVisuallyTracking;
     }
 
     @Override
@@ -849,6 +864,9 @@ public class GameplaySlider extends GameObject {
         if (scene == null) {
             return;
         }
+
+        trackingLeniencyTimer = Math.max(0, trackingLeniencyTimer - dt);
+
         elapsedSpanTime = listener.getElapsedTime() - hitTime - completedSpanCount * spanDuration;
 
         double elapsedTime = completedSpanCount * spanDuration + elapsedSpanTime;
