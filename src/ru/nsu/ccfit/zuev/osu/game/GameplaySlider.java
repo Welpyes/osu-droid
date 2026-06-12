@@ -982,7 +982,7 @@ public class GameplaySlider extends GameObject {
         final float percentage = FMath.clamp((float) (elapsedSpanTime / spanDuration), 0, 1);
         final float bodyProgress = reverse ? 1 - percentage : percentage;
 
-        isCloseToEnd = (1 - bodyProgress) * beatmapSlider.getDistance() < 15;
+        isCloseToEnd = (1 - bodyProgress) * beatmapSlider.getDistance() < 30;
 
         if (shouldSnakeOut && Config.isSnakingOutSliders() && completedSpanCount == beatmapSlider.getSpanCount() - 1) {
             float length = bodyProgress * superPathMaxLength;
@@ -1027,7 +1027,8 @@ public class GameplaySlider extends GameObject {
             // Multiply by 5.76 as the follow circle radius is 2.4 times larger than the object radius.
             distanceThresholdSquared *= 5.76f;
 
-            if (beatmapSlider.getDistance() < 50 || beatmapSlider.getDuration() < 500 || isCloseToEnd) {
+            if (beatmapSlider.getDistance() < 50 || beatmapSlider.getDuration() < 500 || isCloseToEnd
+                || beatmapSlider.getRepeatCount() > 0 && beatmapSlider.getSpanDuration() < 500) {
                 distanceThresholdSquared *= 5.76f;
             }
         }
