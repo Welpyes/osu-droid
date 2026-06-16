@@ -85,6 +85,8 @@ public class GameplaySlider extends GameObject {
     private boolean isTracking;
     private boolean isCursorInside;
     private float trackingLeniencyTimer;
+    private boolean tailHasBeenJudged;
+    private double tailJudgementTime;
     private boolean spanStarted;
     private final UISprite followCircle;
 
@@ -203,6 +205,12 @@ public class GameplaySlider extends GameObject {
         elapsedSpanTime = -timePreempt;
         duration = beatmapSlider.getDuration() / 1000;
         spanDuration = beatmapSlider.getSpanDuration() / 1000;
+        tailHasBeenJudged = false;
+        if (spanDuration < 0.072) {
+            tailJudgementTime = spanDuration / 2;
+        } else {
+            tailJudgementTime = spanDuration - 0.036;
+        }
         path = sliderPath;
         hitWindow = beatmapSlider.getHead().hitWindow;
         trackingCursorId = -1;
@@ -749,6 +757,81 @@ public class GameplaySlider extends GameObject {
         removeFromScene();
     }
 
+    private void judgeSliderTail() {
+        if (hitWindow == null) {
+            return;
+        }
+
+        boolean wasTracking = isTracking();
+        var spanEndJudgementPosition = reverse ? position : pathEndPosition;
+
+        if (startHit) {
+            if (wasTracking) {
+                playCurrentNestedObjectHitSound();
+                ticksGot++;
+                tickSet.set(replayTickIndex++, true);
+            } else {
+                tickSet.set(replayTickIndex++, false);
+            }
+
+            updateSlidingSamplesVolume();
+            currentNestedObjectIndex++;
+        }
+
+        if (!startHit) {
+            // Slider head was never hit - miss the entire slider before the end.
+            onSliderHeadHit(getLateHitOffset());
+        }
+
+        // Calculating score
+        int score = 0;
+
+        if (replayObjectData == null) {
+            int firstHitScore = 0;
+
+            if (GameHelper.isScoreV2()) {
+                // If ScoreV2 is active, the accuracy of hitting the slider head is additionally accounted for when judging the entire slider:
+                // Getting a 300 for a slider requires getting a 300 judgement for the slider head.
+                // Getting a 100 for a slider requires getting a 100 judgement or better for the slider head.
+                if (Math.abs(firstHitAccuracy) <= hitWindow.getGreatWindow()) {
+                    firstHitScore = 300;
+                } else if (Math.abs(firstHitAccuracy) <= hitWindow.getOkWindow()) {
+                    firstHitScore = 100;
+                }
+            }
+
+            int totalTicks = beatmapSlider.getNestedHitObjects().size();
+
+            if (ticksGot > 0) {
+                score = 50;
+            }
+
+            if (ticksGot >= totalTicks / 2 && (!GameHelper.isScoreV2() || firstHitScore >= 100)) {
+                score = 100;
+            }
+
+            if (ticksGot >= totalTicks && (!GameHelper.isScoreV2() || firstHitScore == 300)) {
+                score = 300;
+            }
+        } else if (replayObjectData.result == ResultType.HIT300.getId()) {
+            score = 300;
+        } else if (replayObjectData.result == ResultType.HIT100.getId()) {
+            score = 100;
+        } else if (replayObjectData.result == ResultType.HIT50.getId()) {
+            score = 50;
+        }
+
+        // In replays older than version 6, slider ends always give combo even when not being tracked.
+        boolean awardCombo = wasTracking || (replayObjectData != null && GameHelper.getReplayVersion() < 6);
+
+        listener.onSliderHit(id, score, spanEndJudgementPosition, endsCombo, bodyColor,
+            GameObjectListener.SLIDER_END, awardCombo);
+
+        listener.onSliderEnd(id, firstHitAccuracy, tickSet);
+
+        isOver = true;
+    }
+
     private void updateTracking(PointF position) {
         if (!startHit) {
             // Do not allow tracking to happen when the slider head is not yet judged.
@@ -1022,8 +1105,25 @@ public class GameplaySlider extends GameObject {
             listener.updateAutoBasedPos(ballPos.x, ballPos.y);
         }
 
-        // If we got 100% time, finishing slider
-        if (percentage >= 1) {
+        boolean isFinalSpan = completedSpanCount == beatmapSlider.getSpanCount() - 1;
+
+        if (isFinalSpan) {
+            // Apply osu!stable's 36ms slider tail leniency: the tail is judged early (endTime - 36ms
+            // or 50% of span duration for short sliders < 72ms), but visuals continue until the real endTime.
+            if (!tailHasBeenJudged && elapsedSpanTime >= tailJudgementTime) {
+                tailHasBeenJudged = true;
+                judgeSliderTail();
+            }
+
+            if (percentage >= 1) {
+                if (!tailHasBeenJudged) {
+                    tailHasBeenJudged = true;
+                    judgeSliderTail();
+                }
+                isOver = true;
+                removeFromScene();
+            }
+        } else if (percentage >= 1) {
             onSpanFinish();
         }
     }
@@ -1234,7 +1334,7 @@ public class GameplaySlider extends GameObject {
 
     private void judgeSliderTicks() {
         // Do not judge slider ticks until the slider head is hit.
-        if (!startHit || tickContainer.getChildCount() == 0) {
+        if (!startHit || tickContainer.getChildCount() == 0 || currentNestedObjectIndex >= beatmapSlider.getNestedHitObjects().size()) {
             return;
         }
 
@@ -1346,7 +1446,9 @@ public class GameplaySlider extends GameObject {
     }
 
     private void playCurrentNestedObjectHitSound() {
-        listener.playHitSamples(nestedHitSamples.get(currentNestedObjectIndex));
+        if (currentNestedObjectIndex < nestedHitSamples.size()) {
+            listener.playHitSamples(nestedHitSamples.get(currentNestedObjectIndex));
+        }
     }
 
     private void applyDim(UIComponent piece) {
