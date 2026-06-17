@@ -685,6 +685,12 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                             droidTimedDifficultyAttributes = BeatmapDifficultyCalculator.calculateDroidTimedDifficulty(
                                 finalParsedBeatmap, finalPlayableBeatmap, ppScope
                             );
+
+                            Execution.updateThread(() -> {
+                                if (objectIndex > 0) {
+                                    updatePPValue(objectIndex - 1);
+                                }
+                            });
                         });
                     }
                 }
@@ -700,6 +706,12 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                             standardTimedDifficultyAttributes = BeatmapDifficultyCalculator.calculateStandardTimedDifficulty(
                                 finalParsedBeatmap, modValues, ppScope
                             );
+
+                            Execution.updateThread(() -> {
+                                if (objectIndex > 0) {
+                                    updatePPValue(objectIndex - 1);
+                                }
+                            });
                         });
                     }
                 }
@@ -2473,11 +2485,15 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 break;
 
             case GameObjectListener.SLIDER_END:
-                // Slider end hit is tied to the final result of the slider.
+                // Register the slider end hit to statistics first before calling registerHit so that updatePPValue
+                // receives the correct slider end hit count.
+                if (incrementCombo) {
+                    stat.addSliderEndHit();
+                }
+
                 scoreName = registerHit(id, score, endCombo, incrementCombo);
 
                 if (incrementCombo) {
-                    stat.addSliderEndHit();
                     createBurstEffectSliderEnd(judgementPos, color);
                 }
                 break;
@@ -3049,6 +3065,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                         .scaleTo(scale * 1.1f, fadeInLength * 0.8f) // t = 0.8
                         .then(fadeInLength * 0.2f) // t = 1.0
                         .scaleTo(scale * 0.9f, fadeInLength * 0.2f) // t = 1.2
+                        .then()
 
                         // stable dictates scale of 0.9->1 over time 1.0 to 1.4, but we are already at 1.2.
                         // so we need to force the current value to be correct at 1.2 (0.95) then complete the

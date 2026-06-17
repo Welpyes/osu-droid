@@ -138,6 +138,7 @@ class RoomScene(
 
 
     private var currentPlayers = LongArray(0)
+    private var allowAutomaticPlaybackRestart = true
 
 
     init {
@@ -749,17 +750,20 @@ class RoomScene(
         // will call invalidateStatus() with the correct beatmap context.
 
         chat.show()
+        allowAutomaticPlaybackRestart = true
     }
 
     override fun onManagedUpdate(deltaTimeSec: Float) {
-        val selectedBeatmap = GlobalManager.getInstance().selectedBeatmap
+        if (Config.isPlayMusicPreview() && allowAutomaticPlaybackRestart) {
+            val selectedBeatmap = GlobalManager.getInstance().selectedBeatmap
 
-        if (selectedBeatmap != null) {
-            val songService = GlobalManager.getInstance().songService
+            if (selectedBeatmap != null) {
+                val songService = GlobalManager.getInstance().songService
 
-            if (songService.status == Status.STOPPED) {
-                songService.preLoad(selectedBeatmap.audioPath)
-                songService.play()
+                if (songService.status == Status.STOPPED) {
+                    songService.preLoad(selectedBeatmap.audioPath)
+                    songService.play()
+                }
             }
         }
 
@@ -770,7 +774,7 @@ class RoomScene(
     // Communication
 
     override fun onServerError(error: String) {
-        mainThread { ToastLogger.showText(error, true) }
+        ToastLogger.showText(error, true)
     }
 
     override fun onRoomChatMessage(uid: Long?, message: String) {
@@ -1071,6 +1075,7 @@ class RoomScene(
 
         updateThread {
             val global = GlobalManager.getInstance()
+
             if (player.status != PlayerStatus.MissingBeatmap && global.engine.scene != global.gameScene.scene) {
 
                 if (global.selectedBeatmap == null) {
@@ -1078,6 +1083,7 @@ class RoomScene(
                     return@updateThread
                 }
 
+                allowAutomaticPlaybackRestart = false
                 global.songMenu.stopMusic()
                 global.gameScene.startGame(global.selectedBeatmap, null, ModMenu.enabledMods)
 

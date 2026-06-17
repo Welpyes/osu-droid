@@ -1,6 +1,7 @@
 package com.osudroid.difficulty.calculator
 
 import com.osudroid.beatmaps.DroidHitWindow
+import com.osudroid.beatmaps.HitWindow
 import com.osudroid.beatmaps.PreciseDroidHitWindow
 import com.osudroid.difficulty.attributes.DroidDifficultyAttributes
 import com.osudroid.difficulty.attributes.DroidPerformanceAttributes
@@ -47,24 +48,37 @@ class DroidPerformanceCalculator(
     private var deviation = 0.0
     private var tapDeviation = 0.0
 
-    private val isPrecise by lazy {
-        difficultyAttributes.mods.any { it is ModPrecise }
-    }
+    private val isPrecise
+        get() = attributes.mods.any { it is ModPrecise }
+
+    private var hitWindow: HitWindow = DroidHitWindow(0f)
 
     override fun createPerformanceAttributes(attributes: DroidPerformanceAttributes?) = (attributes ?: DroidPerformanceAttributes()).also {
+        // Avoid allocating unnecessary hit windows.
+        if (isPrecise && hitWindow !is PreciseDroidHitWindow) {
+            hitWindow = PreciseDroidHitWindow(this.attributes.overallDifficulty)
+        } else if (hitWindow !is DroidHitWindow) {
+            hitWindow = DroidHitWindow(this.attributes.overallDifficulty)
+        }
+
+        // Ensure hit window obtains its actual overall difficulty if it wasn't reinitialized.
+        hitWindow.overallDifficulty = this.attributes.overallDifficulty
+
         var multiplier = FINAL_MULTIPLIER
 
         if (usingClassicSliderCalculation) {
             val remainingScore = this.attributes.maximumScore - totalScore
 
             // If there is less than one miss, let combo-based miss count decide whether this is full combo.
-            val scoreBasedMissCount = max(1.0, (totalScore - remainingScore) / remainingScore.toDouble())
+            val scoreBasedMissCount = max(1.0, (totalScore - remainingScore) / totalScore.toDouble())
 
             // Cap result by very harsh version of combo-based miss count.
             effectiveMissCount = min(scoreBasedMissCount, calculateMaximumComboBasedMissCount())
         } else {
             effectiveMissCount = calculateComboBasedEstimatedMissCount()
         }
+
+        effectiveMissCount = effectiveMissCount.coerceIn(countMiss.toDouble(), totalHits.toDouble())
 
         if (this.attributes.mods.any { m -> m is ModNoFail }) {
             multiplier *= max(0.9, 1 - 0.02 * effectiveMissCount)
@@ -277,29 +291,30 @@ class DroidPerformanceCalculator(
         if (missCount == 0.0) 1.0
         else 0.93 / (missCount / (4 * ln(difficultStrainCount)) + 1)
 
-    private val proportionalMissPenalty by lazy {
-        if (effectiveMissCount == 0.0) {
-            return@lazy 1.0
+    private val proportionalMissPenalty: Double
+        get() {
+            if (effectiveMissCount == 0.0) {
+                return 1.0
+            }
+
+            val relevantMissCount = min(
+                effectiveMissCount + aimEstimatedSliderBreaks,
+                totalImperfectHits + comboBreakingSliderNestedMisses.toDouble()
+            )
+
+            if (relevantMissCount == 0.0) {
+                return 1.0
+            }
+
+            val missProportion = (totalHits - relevantMissCount) / (totalHits + 1)
+            val noMissProportion = totalHits / (totalHits + 1.0)
+
+            // Aim deviation-based scale.
+            return ErrorFunction.erfInvFast(missProportion) / ErrorFunction.erfInvFast(noMissProportion) *
+                // Cheesing-based scale (i.e. 50% misses is deliberately only hitting each other
+                // note, 90% misses is deliberately only hitting 1 note every 10 notes).
+                missProportion.pow(8)
         }
-
-        val relevantMissCount = min(
-            effectiveMissCount + aimEstimatedSliderBreaks,
-            totalImperfectHits + comboBreakingSliderNestedMisses.toDouble()
-        )
-
-        if (relevantMissCount == 0.0) {
-            return@lazy 1.0
-        }
-
-        val missProportion = (totalHits - relevantMissCount) / (totalHits + 1)
-        val noMissProportion = totalHits / (totalHits + 1.0)
-
-        // Aim deviation-based scale.
-        ErrorFunction.erfInvFast(missProportion) / ErrorFunction.erfInvFast(noMissProportion) *
-            // Cheesing-based scale (i.e. 50% misses is deliberately only hitting each other
-            // note, 90% misses is deliberately only hitting 1 note every 10 notes).
-            missProportion.pow(8)
-    }
 
     /**
      * Calculates the object-based length scaling based on the deviation of a player for a full
@@ -473,11 +488,6 @@ class DroidPerformanceCalculator(
         return Interpolation.linear(adjustedTapValue, tapValue, t) / tapValue
     }
 
-    private val hitWindow by lazy {
-        if (isPrecise) PreciseDroidHitWindow(difficultyAttributes.overallDifficulty)
-        else DroidHitWindow(difficultyAttributes.overallDifficulty)
-    }
-
     private fun calculateEstimatedSliderBreaks(topWeightedSliderFactor: Double): Double {
         val nonMissMistakes = countOk + countMeh
 
@@ -517,7 +527,7 @@ class DroidPerformanceCalculator(
             // 4 was picked because in a lot of short stream beatmaps with small amount of sliders, there
             // are 2-3 sliders on which sliderends are often dropped. This is a kind of optimization to
             // achieve the most accurate result on average.
-            min(4 * likelyMissedSliderEndPortion * attributes.sliderCount, attributes.sliderCount.toDouble())
+            min(4 + likelyMissedSliderEndPortion * attributes.sliderCount, attributes.sliderCount.toDouble())
 
         if (scoreMaxCombo < fullComboThreshold) {
             missCount = (fullComboThreshold / max(1, scoreMaxCombo)).pow(2.5)
@@ -559,7 +569,7 @@ class DroidPerformanceCalculator(
                 // 4 was picked because in a lot of short stream beatmaps with small amount of sliders, there
                 // are 2-3 sliders on which sliderends are often dropped. This is a kind of optimization to
                 // achieve the most accurate result on average.
-                min(4 * likelyMissedSliderEndPortion * attributes.sliderCount, attributes.sliderCount.toDouble())
+                min(4 + likelyMissedSliderEndPortion * attributes.sliderCount, attributes.sliderCount.toDouble())
 
             if (scoreMaxCombo < fullComboThreshold) {
                 missCount = fullComboThreshold / max(1, scoreMaxCombo)
