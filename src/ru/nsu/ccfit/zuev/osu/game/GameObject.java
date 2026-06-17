@@ -94,9 +94,7 @@ public abstract class GameObject {
             return null;
         }
 
-        // For Relax, we need to check two cases:
-        // 1. If a cursor flows over the object when it is hittable.
-        // 2. If a cursor is pressed while it is over the object when it is hittable.
+        // For Relax, we only check if a cursor is over the object when it is hittable (flow/stationary logic).
         if (GameHelper.isRelax()) {
             for (int i = 0; i < cursorCount; i++) {
                 var cursor = listener.getCursor(i);
@@ -112,11 +110,6 @@ public abstract class GameObject {
                         }
 
                         boolean isHit = isHit(hitObject, event);
-
-                        // Case 1
-                        if (event.isActionDown() && isHit && canHit(event, hitObject.hitWindow)) {
-                            return event;
-                        }
 
                         // Case 2
                         if (objectElapsedTime >= 0.01 && isHit) {

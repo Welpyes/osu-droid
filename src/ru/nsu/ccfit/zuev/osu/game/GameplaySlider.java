@@ -87,6 +87,7 @@ public class GameplaySlider extends GameObject {
     private float trackingLeniencyTimer;
     private boolean tailHasBeenJudged;
     private double tailJudgementTime;
+    private boolean shouldPlayTailSound;
     private boolean spanStarted;
     private final UISprite followCircle;
 
@@ -206,6 +207,7 @@ public class GameplaySlider extends GameObject {
         duration = beatmapSlider.getDuration() / 1000;
         spanDuration = beatmapSlider.getSpanDuration() / 1000;
         tailHasBeenJudged = false;
+        shouldPlayTailSound = false;
         if (spanDuration < 0.072) {
             tailJudgementTime = spanDuration / 2;
         } else {
@@ -767,7 +769,7 @@ public class GameplaySlider extends GameObject {
 
         if (startHit) {
             if (wasTracking) {
-                playCurrentNestedObjectHitSound();
+                shouldPlayTailSound = true;
                 ticksGot++;
                 tickSet.set(replayTickIndex++, true);
             } else {
@@ -1120,6 +1122,15 @@ public class GameplaySlider extends GameObject {
                     tailHasBeenJudged = true;
                     judgeSliderTail();
                 }
+
+                if (shouldPlayTailSound) {
+                    int lastIndex = nestedHitSamples.size() - 1;
+                    if (lastIndex >= 0) {
+                        listener.playHitSamples(nestedHitSamples.get(lastIndex));
+                    }
+                    shouldPlayTailSound = false;
+                }
+
                 isOver = true;
                 removeFromScene();
             }
