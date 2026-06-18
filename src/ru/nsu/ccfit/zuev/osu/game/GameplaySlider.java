@@ -1421,6 +1421,13 @@ public class GameplaySlider extends GameObject {
             }
         }
 
+        // Trim stale entries from previous pool use. Without this, nestedHitSamples.size()
+        // remains larger than the actual nested object count, causing the tail sound lookup
+        // at size() - 1 to index an empty inner list -> silence.
+        while (nestedHitSamples.size() > size) {
+            nestedHitSamples.remove(nestedHitSamples.size() - 1);
+        }
+
         sliderSlideSample.reset();
         sliderWhistleSample.reset();
 
