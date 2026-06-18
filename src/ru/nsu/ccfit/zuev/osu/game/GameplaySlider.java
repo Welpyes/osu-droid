@@ -1394,9 +1394,10 @@ public class GameplaySlider extends GameObject {
 
     private void reloadHitSounds() {
         var nestedObjects = beatmapSlider.getNestedHitObjects();
-        nestedHitSamples.ensureCapacity(nestedObjects.size());
+        int nestedObjectCount = nestedObjects.size();
+        nestedHitSamples.ensureCapacity(nestedObjectCount);
 
-        for (int i = 0, size = nestedObjects.size(); i < size; ++i) {
+        for (int i = 0; i < nestedObjectCount; ++i) {
             var nestedObjectSamples = nestedObjects.get(i).getSamples();
             int nestedObjectSampleCount = nestedObjectSamples.size();
 
@@ -1424,7 +1425,7 @@ public class GameplaySlider extends GameObject {
         // Trim stale entries from previous pool use. Without this, nestedHitSamples.size()
         // remains larger than the actual nested object count, causing the tail sound lookup
         // at size() - 1 to index an empty inner list -> silence.
-        while (nestedHitSamples.size() > size) {
+        while (nestedHitSamples.size() > nestedObjectCount) {
             nestedHitSamples.remove(nestedHitSamples.size() - 1);
         }
 
