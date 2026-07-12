@@ -29,7 +29,7 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: debug-apk
-        path: osu-droid/build/outputs/apk/debug/*.apk
+        path: build/outputs/apk/debug/*.apk
 
   assemble-pre-release:
     name: Assemble Pre-Release APK
@@ -48,7 +48,7 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: pre-release-apk
-        path: osu-droid/build/outputs/apk/pre_release/*.apk
+        path: build/outputs/apk/pre_release/*.apk
 
   assemble-release:
     name: Assemble Release APK
@@ -67,7 +67,7 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: release-apk
-        path: osu-droid/build/outputs/apk/release/*.apk
+        path: build/outputs/apk/release/*.apk
 
   unit-test:
     name: Unit Tests
