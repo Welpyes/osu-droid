@@ -11,6 +11,6 @@ class ModNoFail : Mod() {
     override val isRanked = true
 
     override val incompatibleMods = super.incompatibleMods + arrayOf(
-        ModPerfect::class, ModSuddenDeath::class, ModAutopilot::class, ModRelax::class
+        ModPerfect::class, ModSuddenDeath::class, ModAutopilot::class
     )
 }

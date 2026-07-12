@@ -10,7 +10,7 @@ class ModRelax : Mod() {
     override val type = ModType.Automation
 
     override val incompatibleMods = super.incompatibleMods + arrayOf(
-        ModAutoplay::class, ModNoFail::class, ModAutopilot::class
+        ModAutoplay::class, ModAutopilot::class
     )
 
     companion object {
