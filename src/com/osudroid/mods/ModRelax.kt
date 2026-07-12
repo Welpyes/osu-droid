@@ -17,6 +17,6 @@ class ModRelax : Mod() {
         /**
          * How early before a hit object's start time (in milliseconds) a cursor flowing over it can trigger a hit.
          */
-        const val RELAX_LENIENCY = 5.0
+        const val RELAX_LENIENCY = 0
     }
 }
