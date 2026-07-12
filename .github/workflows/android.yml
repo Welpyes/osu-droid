@@ -5,6 +5,12 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  workflow_dispatch:
+    inputs:
+      BRANCH:
+        description: branch to build
+        required: true
+        default: master
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
