@@ -54,6 +54,13 @@ public class GameplaySlider extends GameObject {
     // Avoid rebuilding slider body mesh for tiny length deltas every frame.
     private static final float snakeLengthUpdateThreshold = 0.75f;
 
+    /**
+     * How long before the slider end (in seconds) the tail is judged.
+     * This gives players a buffer to complete tracking before the visual end.
+     * Matches osu!stable behavior: {@code min(36ms, sliderDuration / 2)}.
+     */
+    private static final float TAIL_LENIENCY = 0.036f;
+
     private final UISprite approachCircle;
     private final UISprite startArrow, endArrow;
     private Slider beatmapSlider;
@@ -84,6 +91,13 @@ public class GameplaySlider extends GameObject {
     private int trackingCursorId = -1;
     private boolean isTracking;
     private boolean spanStarted;
+
+    /**
+     * Grace period for leaving the follow circle. If the cursor leaves and re-enters before this
+     * timer expires, tracking is preserved. Timer resets on each re-entry.
+     */
+    private float trackingGraceTimeRemaining;
+    private boolean wasInFollowRadius;
 
     private final UISprite followCircle;
 
@@ -207,6 +221,8 @@ public class GameplaySlider extends GameObject {
         trackingCursorId = -1;
         isTracking = false;
         headWasHit = false;
+        trackingGraceTimeRemaining = 0;
+        wasInFollowRadius = false;
 
         reloadHitSounds();
 
@@ -767,23 +783,27 @@ public class GameplaySlider extends GameObject {
             // Do not allow tracking to happen when the slider head is not yet judged.
             isTracking = false;
             trackingCursorId = -1;
+            wasInFollowRadius = false;
             return;
         }
 
         if (autoPlay || replayObjectData != null) {
             trackingCursorId = 0;
             isTracking = true;
+            wasInFollowRadius = true;
+            trackingGraceTimeRemaining = 0;
         } else {
+            boolean isInRadiusNow = false;
+
             if (trackingCursorId != -1) {
                 // If the slider is being tracked, we only want to check if the tracking cursor is still tracking it.
                 var trackingCursor = listener.getCursor(trackingCursorId);
                 var latestEvent = trackingCursor.getLatestEvent();
 
                 if (latestEvent != null && !latestEvent.isActionUp()) {
-                    isTracking = isCursorTracking(position, latestEvent);
+                    isInRadiusNow = isCursorTracking(position, latestEvent);
                 } else {
                     trackingCursorId = -1;
-                    isTracking = false;
                 }
             }
 
@@ -795,14 +815,36 @@ public class GameplaySlider extends GameObject {
 
                     if (latestEvent != null && isCursorTracking(position, latestEvent)) {
                         trackingCursorId = i;
-                        isTracking = true;
+                        isInRadiusNow = true;
                         break;
                     }
                 }
             }
+
+            // Grace period logic: if cursor leaves, start timer. If re-enters, reset timer.
+            // Tracking only breaks when grace timer expires while outside.
+            if (isInRadiusNow) {
+                // Cursor is inside: reset grace timer and maintain tracking.
+                trackingGraceTimeRemaining = getTrackingGracePeriod();
+                isTracking = true;
+            } else {
+                // Cursor is outside: count down grace timer.
+                // isTracking stays true while grace timer > 0.
+                isTracking = trackingGraceTimeRemaining > 0;
+            }
+
+            wasInFollowRadius = isInRadiusNow;
         }
 
         updateFollowCircleTrackingState();
+    }
+
+    /**
+     * Returns the grace period duration (in seconds) for leaving the follow circle.
+     * This is 1/4 of the span duration, clamped to a minimum of 0.1 seconds.
+     */
+    private float getTrackingGracePeriod() {
+        return Math.max(0.1f, (float) spanDuration / 4);
     }
 
     private boolean isCursorTracking(PointF trackingPosition, CursorEvent cursorEvent) {
@@ -1007,6 +1049,17 @@ public class GameplaySlider extends GameObject {
         // Ball position
         var ballPos = getPositionAt(bodyProgress, true, false);
         updateTracking(ballPos);
+
+        // Count down grace timer when cursor is outside follow circle
+        if (!wasInFollowRadius && trackingGraceTimeRemaining > 0) {
+            trackingGraceTimeRemaining -= dt;
+            if (trackingGraceTimeRemaining <= 0) {
+                trackingGraceTimeRemaining = 0;
+                isTracking = false;
+                updateFollowCircleTrackingState();
+            }
+        }
+
         listener.onTrackingSliders(isTracking());
 
         judgeSliderTicks();
@@ -1022,7 +1075,13 @@ public class GameplaySlider extends GameObject {
         }
 
         // If we got 100% time, finishing slider
-        if (percentage >= 1) {
+        // For the last span, apply tail leniency: judge the tail early (before visual end)
+        // to match osu!stable behavior where tail is at min(36ms, duration/2) before end.
+        boolean isLastSpan = completedSpanCount >= beatmapSlider.getSpanCount() - 1;
+        float effectiveTailLeniency = isLastSpan ? Math.min(TAIL_LENIENCY, (float) spanDuration / 2) : 0;
+        float finishThreshold = 1 - effectiveTailLeniency / (float) spanDuration;
+
+        if (percentage >= finishThreshold) {
             onSpanFinish();
         }
     }
@@ -1037,8 +1096,9 @@ public class GameplaySlider extends GameObject {
         float distanceThresholdSquared = radius * radius;
 
         if (isTracking) {
-            // Multiply by 4 as the follow circle radius is 2 times larger than the object radius.
-            distanceThresholdSquared *= 4;
+            // Follow circle radius is 2.4 times the object radius (matches osu!stable).
+            // 2.4^2 = 5.76
+            distanceThresholdSquared *= 5.76f;
         }
 
         return distanceThresholdSquared;

@@ -46,7 +46,7 @@ class ScoreMultiplierCalculator @JvmOverloads constructor(difficulty: BeatmapDif
 
         // region Automation
 
-        single<ModRelax>(1e-3)
+        single<ModRelax>(0.1)
         single<ModAutopilot>(1e-3)
 
         // endregion
